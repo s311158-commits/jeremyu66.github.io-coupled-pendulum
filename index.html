@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>耦合擺動畫</title>
+  <title>耦合擺動畫（SI制）</title>
   <style>
     body {
       font-family: sans-serif;
@@ -41,7 +41,7 @@
   </style>
 </head>
 <body>
-  <h2>耦合擺動畫模擬</h2>
+  <h2>耦合擺動畫模擬（SI制）</h2>
   <canvas id="canvas" width="600" height="400"></canvas>
 
   <div class="controls">
@@ -58,10 +58,6 @@
       <input type="range" id="k" min="0.1" max="10" step="0.1" value="1">
     </div>
     <div class="control-group">
-      <label>擺長: <span id="lengthLabel">150</span> px</label>
-      <input type="range" id="lengthSlider" min="50" max="300" step="10" value="150">
-    </div>
-    <div class="control-group">
       <button id="startBtn">開始</button>
       <button id="resetBtn">重置</button>
     </div>
@@ -75,39 +71,164 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
+    // 像素/公尺比率（1m = 150px）
+    const pixelsPerMeter = 150;
+
+    // 擺長 (以公尺為單位)
+    const L = 1.0;
+
+    const originX1 = 200;
+    const originX2 = 400;
+    const originY = 50;
+
+    // 控制元件
     const mass1Slider = document.getElementById('mass1');
     const mass2Slider = document.getElementById('mass2');
     const kSlider = document.getElementById('k');
-    const lengthSlider = document.getElementById('lengthSlider');
-
     const mass1Label = document.getElementById('mass1Label');
     const mass2Label = document.getElementById('mass2Label');
     const kLabel = document.getElementById('kLabel');
-    const lengthLabel = document.getElementById('lengthLabel');
-
     const periodDisplay = document.getElementById('period');
     const omegaDisplay = document.getElementById('omega');
 
     let m1 = parseFloat(mass1Slider.value);
     let m2 = parseFloat(mass2Slider.value);
     let k = parseFloat(kSlider.value);
-    let L = parseFloat(lengthSlider.value);
 
     let running = false;
 
-    const originX1 = 200;
-    const originX2 = 400;
-    const originY = 50;
-
-    let theta1 = 0.3;
+    let theta1 = 0.3; // 初始角度 (rad)
     let theta2 = 0;
-    let omega1 = 1.0;  // 初始角速度提高
+    let omega1 = 0;   // 角速度 (rad/s)
     let omega2 = 0;
-
     let lastTime = null;
 
     function resetSystem() {
       theta1 = 0.3;
       theta2 = 0;
-      omega1 = 1.0;
-      omega
+      omega1 = 0;
+      omega2 = 0;
+      lastTime = null;
+      running = false;
+      updateDisplay();
+    }
+
+    function updateParams() {
+      m1 = parseFloat(mass1Slider.value);
+      m2 = parseFloat(mass2Slider.value);
+      k = parseFloat(kSlider.value);
+
+      mass1Label.textContent = m1;
+      mass2Label.textContent = m2;
+      kLabel.textContent = k;
+
+      const mu = (m1 * m2) / (m1 + m2);
+      const omega = Math.sqrt(k / mu); // 角頻率 rad/s
+      const T = 2 * Math.PI / omega;
+
+      periodDisplay.textContent = T.toFixed(2);
+      omegaDisplay.textContent = omega.toFixed(2);
+    }
+
+    function drawSpring(x1, y1, x2, y2, coils = 15, amplitude = 6) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const length = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx);
+
+      ctx.save();
+      ctx.translate(x1, y1);
+      ctx.rotate(angle);
+
+      const step = length / coils;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+
+      for (let i = 1; i <= coils; i++) {
+        const x = step * i;
+        const y = (i % 2 === 0 ? -1 : 1) * amplitude;
+        ctx.lineTo(x, y);
+      }
+
+      ctx.strokeStyle = "green";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 用擺長 L (公尺) 計算位移後轉成像素
+      const x1 = originX1 + Math.sin(theta1) * L * pixelsPerMeter;
+      const y1 = originY + Math.cos(theta1) * L * pixelsPerMeter;
+      const x2 = originX2 + Math.sin(theta2) * L * pixelsPerMeter;
+      const y2 = originY + Math.cos(theta2) * L * pixelsPerMeter;
+
+      // 擺線
+      ctx.beginPath();
+      ctx.moveTo(originX1, originY);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(originX2, originY);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // 質點
+      ctx.beginPath();
+      ctx.arc(x1, y1, 15, 0, Math.PI * 2);
+      ctx.fillStyle = "red";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x2, y2, 15, 0, Math.PI * 2);
+      ctx.fillStyle = "blue";
+      ctx.fill();
+
+      // 螺旋彈簧
+      drawSpring(x1, y1, x2, y2);
+    }
+
+    function updatePhysics(dt) {
+      const g = 9.8; // m/s^2
+
+      // 耦合彈簧扭力 (簡化模型)
+      const deltaTheta = theta2 - theta1;
+      const springTorque1 = k * deltaTheta;
+      const springTorque2 = -k * deltaTheta;
+
+      const alpha1 = (-g / L) * Math.sin(theta1) + springTorque1 / m1;
+      const alpha2 = (-g / L) * Math.sin(theta2) + springTorque2 / m2;
+
+      omega1 += alpha1 * dt;
+      omega2 += alpha2 * dt;
+
+      theta1 += omega1 * dt;
+      theta2 += omega2 * dt;
+    }
+
+    function animate(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      if (running) {
+        updatePhysics(dt);
+      }
+      draw();
+      requestAnimationFrame(animate);
+    }
+
+    function updateDisplay() {
+      updateParams();
+      draw();
+    }
+
+    // 初始化
+    updateDisplay();
+    requestAnimationFrame(animate);
+
+    // 控制綁定
+    mass1Slider.addEvent
