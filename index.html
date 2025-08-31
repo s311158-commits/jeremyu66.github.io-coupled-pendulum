@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>耦合擺動畫</title>
+  <title>耦合擺動畫（正確物理模型）</title>
   <style>
     body {
       font-family: sans-serif;
@@ -41,7 +41,7 @@
   </style>
 </head>
 <body>
-  <h2>耦合擺動畫模擬（SI制）</h2>
+  <h2>耦合擺動畫模擬（正確運動方程）</h2>
   <canvas id="canvas" width="600" height="400"></canvas>
 
   <div class="controls">
@@ -61,35 +61,24 @@
       <button id="startBtn">開始</button>
       <button id="resetBtn">重置</button>
     </div>
-    <div class="control-group" id="info">
-      週期: <span id="period">--</span> s<br>
-      角頻率: <span id="omega">--</span> rad/s
-    </div>
   </div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
-    // 像素/公尺比率（1m = 150px）
     const pixelsPerMeter = 150;
-
-    // 擺長 (公尺)
-    const L = 1.0;
-
+    const L = 1.0; // 擺長
     const originX1 = 200;
     const originX2 = 400;
     const originY = 50;
 
-    // 控制元件
     const mass1Slider = document.getElementById('mass1');
     const mass2Slider = document.getElementById('mass2');
     const kSlider = document.getElementById('k');
     const mass1Label = document.getElementById('mass1Label');
     const mass2Label = document.getElementById('mass2Label');
     const kLabel = document.getElementById('kLabel');
-    const periodDisplay = document.getElementById('period');
-    const omegaDisplay = document.getElementById('omega');
 
     let m1 = parseFloat(mass1Slider.value);
     let m2 = parseFloat(mass2Slider.value);
@@ -97,13 +86,10 @@
 
     let running = false;
 
-    // 初始角度 (rad)
     let theta1 = 0.3;
     let theta2 = 0;
-    // 初始角速度 (rad/s)
     let omega1 = 0;
     let omega2 = 0;
-
     let lastTime = null;
 
     function resetSystem() {
@@ -113,7 +99,7 @@
       omega2 = 0;
       lastTime = null;
       running = false;
-      updateDisplay();
+      draw();
     }
 
     function updateParams() {
@@ -124,17 +110,8 @@
       mass1Label.textContent = m1.toFixed(1);
       mass2Label.textContent = m2.toFixed(1);
       kLabel.textContent = k.toFixed(1);
-
-      // 簡化週期與角頻率估算（簡諧耦合近似）
-      const mu = (m1 * m2) / (m1 + m2);
-      const omega = Math.sqrt(k / mu);
-      const T = 2 * Math.PI / omega;
-
-      periodDisplay.textContent = T.toFixed(2);
-      omegaDisplay.textContent = omega.toFixed(2);
     }
 
-    // 繪製彈簧的函式 (鋸齒線表示)
     function drawSpring(x1, y1, x2, y2, coils = 15, amplitude = 6) {
       const dx = x2 - x1;
       const dy = y2 - y1;
@@ -164,13 +141,11 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 將角度與擺長換算為像素位置
       const x1 = originX1 + Math.sin(theta1) * L * pixelsPerMeter;
       const y1 = originY + Math.cos(theta1) * L * pixelsPerMeter;
       const x2 = originX2 + Math.sin(theta2) * L * pixelsPerMeter;
       const y2 = originY + Math.cos(theta2) * L * pixelsPerMeter;
 
-      // 繪製擺線與質點
       ctx.beginPath();
       ctx.moveTo(originX1, originY);
       ctx.lineTo(x1, y1);
@@ -191,24 +166,26 @@
       ctx.fillStyle = "blue";
       ctx.fill();
 
-      // 繪製彈簧
       drawSpring(x1, y1, x2, y2);
     }
 
     function updatePhysics(dt) {
-      const g = 9.8; // 重力加速度 m/s^2
+      const g = 9.8;
 
-      // 耦合彈簧扭力簡化模型
-      const deltaTheta = theta2 - theta1;
-      const springTorque1 = k * deltaTheta;
-      const springTorque2 = -k * deltaTheta;
+      // 水平位移 (小角度近似 sinθ ≈ θ)
+      const x1 = L * Math.sin(theta1);
+      const x2 = L * Math.sin(theta2);
+      const dx = x2 - x1;
 
-      const alpha1 = (-g / L) * Math.sin(theta1) + springTorque1 / m1;
-      const alpha2 = (-g / L) * Math.sin(theta2) + springTorque2 / m2;
+      // 彈簧水平力
+      const F_spring = -k * dx;
+
+      // 擺的水平方程式：m L θ¨ = -m g sinθ + F_spring * L cosθ
+      const alpha1 = (-g / L) * Math.sin(theta1) + (F_spring / (m1 * L)) * Math.cos(theta1);
+      const alpha2 = (-g / L) * Math.sin(theta2) - (F_spring / (m2 * L)) * Math.cos(theta2);
 
       omega1 += alpha1 * dt;
       omega2 += alpha2 * dt;
-
       theta1 += omega1 * dt;
       theta2 += omega2 * dt;
     }
@@ -225,24 +202,16 @@
       requestAnimationFrame(animate);
     }
 
-    function updateDisplay() {
-      updateParams();
-      draw();
-    }
-
-    // 初始化顯示與動畫
-    updateDisplay();
+    draw();
     requestAnimationFrame(animate);
 
-    // 事件綁定
-    mass1Slider.addEventListener("input", updateDisplay);
-    mass2Slider.addEventListener("input", updateDisplay);
-    kSlider.addEventListener("input", updateDisplay);
+    mass1Slider.addEventListener("input", () => { updateParams(); draw(); });
+    mass2Slider.addEventListener("input", () => { updateParams(); draw(); });
+    kSlider.addEventListener("input", () => { updateParams(); draw(); });
 
     document.getElementById('startBtn').onclick = () => {
       running = true;
     };
-
     document.getElementById('resetBtn').onclick = () => {
       resetSystem();
     };
