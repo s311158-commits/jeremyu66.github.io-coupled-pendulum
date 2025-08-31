@@ -58,6 +58,10 @@
       <input type="range" id="k" min="0.1" max="10" step="0.1" value="1">
     </div>
     <div class="control-group">
+      <label>擺長: <span id="lengthLabel">150</span> px</label>
+      <input type="range" id="lengthSlider" min="50" max="300" step="10" value="150">
+    </div>
+    <div class="control-group">
       <button id="startBtn">開始</button>
       <button id="resetBtn">重置</button>
     </div>
@@ -74,10 +78,12 @@
     const mass1Slider = document.getElementById('mass1');
     const mass2Slider = document.getElementById('mass2');
     const kSlider = document.getElementById('k');
+    const lengthSlider = document.getElementById('lengthSlider');
 
     const mass1Label = document.getElementById('mass1Label');
     const mass2Label = document.getElementById('mass2Label');
     const kLabel = document.getElementById('kLabel');
+    const lengthLabel = document.getElementById('lengthLabel');
 
     const periodDisplay = document.getElementById('period');
     const omegaDisplay = document.getElementById('omega');
@@ -85,19 +91,17 @@
     let m1 = parseFloat(mass1Slider.value);
     let m2 = parseFloat(mass2Slider.value);
     let k = parseFloat(kSlider.value);
+    let L = parseFloat(lengthSlider.value);
 
     let running = false;
 
-    // 擺的長度
-    const L = 150;
     const originX1 = 200;
     const originX2 = 400;
     const originY = 50;
 
-    // 初始角度與角速度
     let theta1 = 0.3;
     let theta2 = 0;
-    let omega1 = 0;
+    let omega1 = 1.0;  // 初始角速度提高
     let omega2 = 0;
 
     let lastTime = null;
@@ -105,122 +109,5 @@
     function resetSystem() {
       theta1 = 0.3;
       theta2 = 0;
-      omega1 = 0;
-      omega2 = 0;
-      lastTime = null;
-      running = false;
-      updateDisplay();
-    }
-
-    function updateParams() {
-      m1 = parseFloat(mass1Slider.value);
-      m2 = parseFloat(mass2Slider.value);
-      k = parseFloat(kSlider.value);
-
-      mass1Label.textContent = m1;
-      mass2Label.textContent = m2;
-      kLabel.textContent = k;
-
-      // 簡化週期與角頻率估算（簡諧耦合近似）
-      const mu = (m1 * m2) / (m1 + m2);
-      const omega = Math.sqrt(k / mu);
-      const T = 2 * Math.PI / omega;
-      periodDisplay.textContent = T.toFixed(2);
-      omegaDisplay.textContent = omega.toFixed(2);
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // 球的位置
-      const x1 = originX1 + L * Math.sin(theta1);
-      const y1 = originY + L * Math.cos(theta1);
-
-      const x2 = originX2 + L * Math.sin(theta2);
-      const y2 = originY + L * Math.cos(theta2);
-
-      // 繪製左擺
-      ctx.beginPath();
-      ctx.moveTo(originX1, originY);
-      ctx.lineTo(x1, y1);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(x1, y1, 15, 0, Math.PI * 2);
-      ctx.fillStyle = "red";
-      ctx.fill();
-
-      // 繪製右擺
-      ctx.beginPath();
-      ctx.moveTo(originX2, originY);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(x2, y2, 15, 0, Math.PI * 2);
-      ctx.fillStyle = "blue";
-      ctx.fill();
-
-      // 彈簧連接
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.strokeStyle = "green";
-      ctx.stroke();
-      ctx.strokeStyle = "black";
-    }
-
-    function updatePhysics(dt) {
-      const g = 9.8;
-
-      // 耦合彈簧影響（以角度方式簡化模型）
-      const deltaTheta = theta2 - theta1;
-      const springTorque1 = k * deltaTheta;
-      const springTorque2 = -k * deltaTheta;
-
-      const alpha1 = (-g / L) * Math.sin(theta1) + springTorque1 / m1;
-      const alpha2 = (-g / L) * Math.sin(theta2) + springTorque2 / m2;
-
-      omega1 += alpha1 * dt;
-      omega2 += alpha2 * dt;
-
-      theta1 += omega1 * dt;
-      theta2 += omega2 * dt;
-    }
-
-    function animate(timestamp) {
-      if (!lastTime) lastTime = timestamp;
-      const dt = (timestamp - lastTime) / 1000;
-      lastTime = timestamp;
-
-      if (running) {
-        updatePhysics(dt);
-      }
-      draw();
-      requestAnimationFrame(animate);
-    }
-
-    function updateDisplay() {
-      updateParams();
-      draw();
-    }
-
-    // 初始化
-    updateDisplay();
-    requestAnimationFrame(animate);
-
-    // 事件綁定
-    mass1Slider.addEventListener("input", updateDisplay);
-    mass2Slider.addEventListener("input", updateDisplay);
-    kSlider.addEventListener("input", updateDisplay);
-
-    document.getElementById('startBtn').onclick = () => {
-      running = true;
-    };
-
-    document.getElementById('resetBtn').onclick = () => {
-      resetSystem();
-    };
-  </script>
-</body>
-</html>
+      omega1 = 1.0;
+      omega
